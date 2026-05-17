@@ -120,7 +120,7 @@ function App() {
             <span className="flex items-center gap-2 mb-4">
               <Panda/>
               <p className="text-lg font-bold tracking-[0.18em] text-app-accent">
-                easytodo
+                easyytodo
               </p>
             </span>
             <h1 className="mt-2 text-3xl font-semibold tracking-normal sm:text-4xl">

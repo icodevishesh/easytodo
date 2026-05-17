@@ -1,4 +1,4 @@
-# Todo Desk
+# easyytodo
 
 A minimal modern todo app built with React, TypeScript, Tailwind CSS, and Dexie.js. Tasks are stored locally in IndexedDB through Dexie.
 
