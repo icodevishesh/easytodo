@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Todo } from "./db";
-import { Panda, Clipboard, ClipboardCheck, ClipboardPen, Pencil, ChartNoAxesCombined, ListTodo } from 'lucide-react';
+import { Panda, Clipboard, ClipboardCheck, ClipboardPen, Pencil, Moon, Sun, CheckCheck, X } from 'lucide-react';
 
 type View = "tasks" | "analytics";
 type Draft = Pick<Todo, "title" | "description" | "dueDate">;
@@ -37,6 +37,14 @@ const blankDraft = (): Draft => ({
 });
 
 function App() {
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window === "undefined") {
+      return "dark";
+    }
+
+    const saved = window.localStorage.getItem("app-theme");
+    return saved === "light" ? "light" : "dark";
+  });
   const [view, setView] = useState<View>("tasks");
   const [draft, setDraft] = useState<Draft>(blankDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,6 +56,11 @@ function App() {
   const completedTodos = todos.filter((todo) => todo.completed);
 
   const analytics = useMemo(() => buildAnalytics(todos), [todos]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    window.localStorage.setItem("app-theme", theme);
+  }, [theme]);
 
   const resetForm = () => {
     setDraft(blankDraft());
@@ -113,7 +126,7 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen bg-app-bg text-white">
+    <main className="min-h-screen bg-app-bg text-[var(--app-text)]">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-6 sm:px-8">
         <header className="flex flex-col gap-4 border-b border-app-line pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -127,22 +140,33 @@ function App() {
               Today&apos;s work, sorted.
             </h1>
           </div>
-          <nav className="flex rounded-md border border-app-line bg-app-panel p-1">
+          <div className="flex items-center gap-2">
             <button
-              className={view === "tasks" ? "tab tab-active" : "tab"}
-              onClick={() => setView("tasks")}
+              className="secondary-button inline-flex items-center gap-2"
+              onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
               type="button"
+              aria-label="Toggle theme"
             >
-              Tasks
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              {theme === "dark" ? "Day" : "Night"}
             </button>
-            <button
-              className={view === "analytics" ? "tab tab-active" : "tab"}
-              onClick={() => setView("analytics")}
-              type="button"
-            >
-              Analytics
-            </button>
-          </nav>
+            <nav className="flex rounded-md border border-app-line bg-app-panel p-1">
+              <button
+                className={view === "tasks" ? "tab tab-active" : "tab"}
+                onClick={() => setView("tasks")}
+                type="button"
+              >
+                Tasks
+              </button>
+              <button
+                className={view === "analytics" ? "tab tab-active" : "tab"}
+                onClick={() => setView("analytics")}
+                type="button"
+              >
+                Analytics
+              </button>
+            </nav>
+          </div>
         </header>
 
         {view === "tasks" ? (
@@ -213,6 +237,7 @@ function App() {
                 onDrop={(event) => onDrop(event, false)}
                 onEdit={editTodo}
                 onDelete={(id) => db.todos.delete(id)}
+                onToggleComplete={moveTodo}
               />
               <TaskColumn
                 icon={<ClipboardCheck />}
@@ -224,6 +249,7 @@ function App() {
                 onDrop={(event) => onDrop(event, true)}
                 onEdit={editTodo}
                 onDelete={(id) => db.todos.delete(id)}
+                onToggleComplete={moveTodo}
               />
             </div>
           </section>
@@ -245,6 +271,7 @@ interface TaskColumnProps {
   onDrop: (event: React.DragEvent<HTMLElement>) => void;
   onEdit: (todo: Todo) => void;
   onDelete: (id: string) => void;
+  onToggleComplete: (id: string, completed: boolean) => void;
 }
 
 function TaskColumn({
@@ -257,6 +284,7 @@ function TaskColumn({
   onDrop,
   onEdit,
   onDelete,
+  onToggleComplete,
 }: TaskColumnProps) {
   return (
     <section
@@ -272,10 +300,14 @@ function TaskColumn({
           {icon}
           {title}
         </h2>
-        <span className="rounded-full bg-app-soft px-3 py-1 text-sm text-zinc-200">{todos.length}</span>
+        <span className="rounded-full bg-app-soft px-3 py-1 text-sm text-zinc-600 dark:text-zinc-200">{todos.length}</span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3">
+      <div
+        className={`flex flex-1 flex-col gap-3 ${
+          todos.length > 5 ? "max-h-[34rem] overflow-y-auto pr-1 no-scrollbar" : ""
+        }`}
+      >
         {todos.length === 0 ? <p className="empty-state">{emptyText}</p> : null}
         {todos.map((todo) => (
           <article
@@ -291,7 +323,7 @@ function TaskColumn({
               <div>
                 <h3 className="font-['Cause'] break-words text-lg font-semibold">{todo.title}</h3>
                 {todo.description ? (
-                  <p className="font-['Cause'] mt-2 break-words text-sm leading-6 text-zinc-300">{todo.description}</p>
+                  <p className="font-['Cause'] mt-2 break-words text-sm leading-6 text-zinc-600 dark:text-zinc-300">{todo.description}</p>
                 ) : null}
               </div>
               <span className={todo.completed ? "status status-done" : "status"}>{todo.completed ? "Done" : "In progress"}</span>
@@ -321,6 +353,25 @@ function TaskColumn({
               <button className="danger-button hover:bg-red-500/20 cursor-pointer" type="button" onClick={() => onDelete(todo.id)}>
                 Delete
               </button>
+              <div className="ml-auto">
+                {!todo.completed ? (
+                  <button
+                    className="secondary-button cursor-pointer"
+                    type="button"
+                    onClick={() => onToggleComplete(todo.id, true)}
+                  >
+                    <CheckCheck size={16} />
+                  </button>
+                ) : (
+                  <button
+                    className="ghost-button cursor-pointer"
+                    type="button"
+                    onClick={() => onToggleComplete(todo.id, false)}
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
             </div>
           </article>
         ))}
